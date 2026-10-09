@@ -1,7 +1,7 @@
 /* ────────────────────────────────────────────
    src/lib/hooks.ts
    Shared hooks: useInView, useScrollProgress,
-   prefersReducedMotion
+   prefersReducedMotion, RevealObserver
    ──────────────────────────────────────────── */
 "use client";
 
@@ -12,7 +12,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
  * Adds `.is-in` class to elements with `.rv` or `.rv-mask`.
  */
 export function useInView(
-  options: IntersectionObserverInit = { threshold: 0.15 }
+  options: IntersectionObserverInit = { threshold: 0.05, rootMargin: "0px 0px -20px 0px" }
 ) {
   const ref = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -20,6 +20,13 @@ export function useInView(
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    // Immediate check on mount for Safari above-the-fold elements
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      setIsInView(true);
+      return;
+    }
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
@@ -41,7 +48,7 @@ export function useInView(
  */
 export function useRevealChildren(
   rootRef: React.RefObject<HTMLElement | null>,
-  threshold = 0.1
+  threshold = 0.05
 ) {
   useEffect(() => {
     const root = rootRef.current;
@@ -59,7 +66,7 @@ export function useRevealChildren(
           }
         });
       },
-      { threshold }
+      { threshold, rootMargin: "0px 0px 40px 0px" }
     );
 
     targets.forEach((t) => observer.observe(t));
@@ -69,6 +76,7 @@ export function useRevealChildren(
 
 /**
  * Track scroll progress through a section (0 → 1).
+ * Supports both normal and sticky sections accurately.
  */
 export function useScrollProgress(ref: React.RefObject<HTMLElement | null>) {
   const [progress, setProgress] = useState(0);
@@ -81,9 +89,18 @@ export function useScrollProgress(ref: React.RefObject<HTMLElement | null>) {
     const update = () => {
       const rect = el.getBoundingClientRect();
       const viewH = window.innerHeight;
-      const total = rect.height + viewH;
-      const scrolled = viewH - rect.top;
-      setProgress(Math.min(1, Math.max(0, scrolled / total)));
+      const totalTravel = rect.height - viewH;
+
+      if (totalTravel > 0) {
+        // Sticky or tall section travel
+        const scrolled = -rect.top;
+        setProgress(Math.min(1, Math.max(0, scrolled / totalTravel)));
+      } else {
+        // Standard in-viewport section progress
+        const total = rect.height + viewH;
+        const scrolled = viewH - rect.top;
+        setProgress(Math.min(1, Math.max(0, scrolled / total)));
+      }
       raf = requestAnimationFrame(update);
     };
 
@@ -101,6 +118,7 @@ export function usePrefersReducedMotion() {
   const [prefersReduced, setPrefersReduced] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReduced(mq.matches);
 
@@ -128,15 +146,14 @@ export function useCountUp(
     hasRun.current = true;
 
     const start = performance.now();
-
     const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 
     const tick = (now: number) => {
       const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      setCount(Math.round(easeOutQuart(progress) * target));
+      const p = Math.min(elapsed / duration, 1);
+      setCount(Math.round(easeOutQuart(p) * target));
 
-      if (progress < 1) {
+      if (p < 1) {
         requestAnimationFrame(tick);
       }
     };
@@ -166,7 +183,7 @@ export function useActiveSection(sectionIds: string[]) {
             setActive(id);
           }
         },
-        { rootMargin: "-45% 0px -50% 0px" }
+        { rootMargin: "-30% 0px -50% 0px" }
       );
 
       observer.observe(el);
@@ -180,13 +197,22 @@ export function useActiveSection(sectionIds: string[]) {
 }
 
 /**
- * Global reveal observer — attaches to a container and reveals
- * all `.rv` and `.rv-mask` children as they scroll into view.
+ * Global reveal observer — immediately activates elements in view on mount,
+ * and attaches IntersectionObserver for scrolling elements.
  */
 export function RevealObserver() {
   useEffect(() => {
     const targets = document.querySelectorAll(".rv, .rv-mask");
     if (!targets.length) return;
+
+    // Immediate check for elements already visible or near fold (crucial for Safari)
+    const viewH = window.innerHeight;
+    targets.forEach((t) => {
+      const rect = t.getBoundingClientRect();
+      if (rect.top < viewH + 100) {
+        t.classList.add("is-in");
+      }
+    });
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -197,11 +223,34 @@ export function RevealObserver() {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.01, rootMargin: "0px 0px 50px 0px" }
     );
 
-    targets.forEach((t) => observer.observe(t));
-    return () => observer.disconnect();
+    targets.forEach((t) => {
+      if (!t.classList.contains("is-in")) {
+        observer.observe(t);
+      }
+    });
+
+    // Fallback scroll listener for older Safari versions
+    const handleScroll = () => {
+      targets.forEach((t) => {
+        if (!t.classList.contains("is-in")) {
+          const rect = t.getBoundingClientRect();
+          if (rect.top < window.innerHeight - 30) {
+            t.classList.add("is-in");
+            observer.unobserve(t);
+          }
+        }
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   return null;

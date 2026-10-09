@@ -23,6 +23,7 @@
   *::before,
   *::after {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
@@ -30,6 +31,7 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: auto; /* Lenis handles smooth scroll */
+    overflow-x: clip;
   }
 
   body {
@@ -37,7 +39,7 @@
     color: var(--color-ink);
     background-color: var(--color-paper);
     line-height: 1.6;
-    overflow-x: hidden;
+    overflow-x: clip; /* Safari fix: clip instead of hidden prevents breaking position: sticky */
   }
 
   ::selection {
@@ -63,6 +65,8 @@
   video {
     display: block;
     max-width: 100%;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -133,6 +137,8 @@
     letter-spacing: -0.01em;
     transition: all 0.35s var(--ease);
     white-space: nowrap;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 
   .btn-primary {
@@ -142,6 +148,7 @@
 
   .btn-primary:hover {
     background-color: var(--color-ink-2);
+    -webkit-transform: translateY(-1px);
     transform: translateY(-1px);
   }
 
@@ -155,6 +162,7 @@
     background-color: var(--color-ink);
     color: var(--color-paper);
     border-color: var(--color-ink);
+    -webkit-transform: translateY(-1px);
     transform: translateY(-1px);
   }
 
@@ -163,6 +171,8 @@
     background: var(--color-card);
     border-radius: 24px;
     box-shadow: inset 0 0 0 1px var(--color-line);
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 
   .card-active {
@@ -174,23 +184,28 @@
   /* Reveal on scroll */
   .rv {
     opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    -webkit-transform: translateY(24px) translateZ(0);
+    transform: translateY(24px) translateZ(0);
+    transition: opacity 0.7s var(--ease), -webkit-transform 0.7s var(--ease), transform 0.7s var(--ease);
     transition-delay: calc(var(--i, 0) * 60ms);
+    will-change: opacity, transform;
   }
 
   .rv.is-in {
     opacity: 1;
-    transform: translateY(0);
+    -webkit-transform: translateY(0) translateZ(0);
+    transform: translateY(0) translateZ(0);
   }
 
   .rv-mask {
+    -webkit-clip-path: inset(100% 0 0 0);
     clip-path: inset(100% 0 0 0);
-    transition: clip-path 0.8s var(--ease);
+    transition: -webkit-clip-path 0.8s var(--ease), clip-path 0.8s var(--ease);
     transition-delay: calc(var(--i, 0) * 60ms);
   }
 
   .rv-mask.is-in {
+    -webkit-clip-path: inset(0 0 0 0);
     clip-path: inset(0 0 0 0);
   }
 }
@@ -210,12 +225,14 @@
   }
 
   .rv {
-    opacity: 1;
-    transform: none;
+    opacity: 1 !important;
+    -webkit-transform: none !important;
+    transform: none !important;
   }
 
   .rv-mask {
-    clip-path: none;
+    -webkit-clip-path: none !important;
+    clip-path: none !important;
   }
 }
 
@@ -227,6 +244,7 @@
   height: 2px;
   background-color: var(--color-ink);
   z-index: 100;
+  -webkit-transform-origin: left;
   transform-origin: left;
   will-change: transform;
 }

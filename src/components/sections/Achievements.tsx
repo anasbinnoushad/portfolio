@@ -8,32 +8,14 @@ function AchievementCard({
   item,
   index,
   total,
+  startCount,
 }: {
   item: Achievement;
   index: number;
   total: number;
+  startCount: boolean;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const count = useCountUp(item.number, isVisible, 1400);
+  const count = useCountUp(item.number, startCount, 1400);
 
   const Icon = () => {
     if (item.platform === "capstone") {
@@ -63,10 +45,7 @@ function AchievementCard({
   };
 
   return (
-    <div
-      ref={cardRef}
-      className="shrink-0 w-[clamp(300px,36vw,480px)] h-[clamp(240px,32vh,290px)] bg-white rounded-[28px] p-7 flex flex-col justify-between border border-[var(--color-line)] shadow-sm hover:shadow-md transition-all duration-300"
-    >
+    <div className="shrink-0 w-[clamp(300px,36vw,480px)] h-[clamp(240px,32vh,290px)] bg-white rounded-[28px] p-7 flex flex-col justify-between border border-[var(--color-line)] shadow-sm hover:shadow-md transition-all duration-300">
       <div className="flex justify-between items-start w-full">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[var(--color-ink)] bg-[var(--color-paper)] border border-[var(--color-line)]">
           <Icon />
@@ -105,6 +84,40 @@ function AchievementCard({
 export default function Achievements() {
   const containerRef = useRef<HTMLElement>(null);
   const progress = useScrollProgress(containerRef);
+  const [hasStartedCount, setHasStartedCount] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const checkVisibility = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.8 && rect.bottom > 0) {
+        setHasStartedCount(true);
+      }
+    };
+
+    checkVisibility();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setHasStartedCount(true);
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(el);
+    window.addEventListener("scroll", checkVisibility, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", checkVisibility);
+    };
+  }, []);
 
   return (
     <section
@@ -116,7 +129,11 @@ export default function Achievements() {
         {/* Progress bar */}
         <div
           className="absolute top-0 left-0 h-[2px] bg-[var(--color-ink)] z-50 origin-left"
-          style={{ width: "100%", transform: `scaleX(${progress})` }}
+          style={{
+            width: "100%",
+            transform: `scaleX(${progress})`,
+            WebkitTransform: `scaleX(${progress})`,
+          }}
         />
 
         <div className="container-main mx-auto w-full">
@@ -130,7 +147,8 @@ export default function Achievements() {
           <div
             className="flex gap-6 md:gap-8 px-[var(--gutter)] will-change-transform"
             style={{
-              transform: `translateX(${-progress * 40}%)`,
+              transform: `translate3d(${-progress * 40}%, 0, 0)`,
+              WebkitTransform: `translate3d(${-progress * 40}%, 0, 0)`,
               transition: "transform 0.1s linear",
             }}
           >
@@ -140,6 +158,7 @@ export default function Achievements() {
                 item={item}
                 index={i}
                 total={ACHIEVEMENTS.length}
+                startCount={hasStartedCount}
               />
             ))}
 

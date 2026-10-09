@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PROFILE } from "@/lib/data";
 import { scrollToTarget } from "@/lib/scroll";
 
@@ -8,19 +8,24 @@ export default function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [, setIsPlaying] = useState(false);
   const [canUnmute, setCanUnmute] = useState(false);
 
+  // Setup video properties on mount for Safari compatibility
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    video.defaultMuted = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+
     const tryPlay = async () => {
       try {
         await video.play();
-        setIsPlaying(true);
       } catch {
-        // Autoplay blocked
+        // Autoplay blocked by Safari/browser policy
         video.muted = true;
         setIsMuted(true);
         video.play().catch(() => {});
@@ -31,21 +36,31 @@ export default function Hero() {
     tryPlay();
   }, []);
 
+  // Unlock sound on first user interaction anywhere on page (Safari gesture policy)
   useEffect(() => {
     const unlockSound = () => {
-      if (videoRef.current && isMuted && canUnmute) {
-        videoRef.current.muted = false;
-        setIsMuted(false);
-        setCanUnmute(false);
+      const video = videoRef.current;
+      if (video && isMuted && canUnmute) {
+        video.muted = false;
+        video.volume = 1.0;
+        video
+          .play()
+          .then(() => {
+            setIsMuted(false);
+            setCanUnmute(false);
+          })
+          .catch(() => {
+            // If Safari still rejects passive unlock, wait for direct button press
+          });
       }
       document.removeEventListener("pointerdown", unlockSound);
       document.removeEventListener("keydown", unlockSound);
       document.removeEventListener("touchend", unlockSound);
     };
 
-    document.addEventListener("pointerdown", unlockSound);
-    document.addEventListener("keydown", unlockSound);
-    document.addEventListener("touchend", unlockSound);
+    document.addEventListener("pointerdown", unlockSound, { passive: true });
+    document.addEventListener("keydown", unlockSound, { passive: true });
+    document.addEventListener("touchend", unlockSound, { passive: true });
 
     return () => {
       document.removeEventListener("pointerdown", unlockSound);
@@ -54,6 +69,7 @@ export default function Hero() {
     };
   }, [isMuted, canUnmute]);
 
+  // Pause video when scrolled out of view (35% threshold)
   useEffect(() => {
     const video = videoRef.current;
     const container = containerRef.current;
@@ -63,13 +79,9 @@ export default function Hero() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            video
-              .play()
-              .then(() => setIsPlaying(true))
-              .catch(() => {});
+            video.play().catch(() => {});
           } else {
             video.pause();
-            setIsPlaying(false);
           }
         });
       },
@@ -80,13 +92,22 @@ export default function Hero() {
     return () => observer.disconnect();
   }, []);
 
-  const toggleSound = () => {
-    if (!videoRef.current) return;
-    const newMutedState = !isMuted;
-    videoRef.current.muted = newMutedState;
-    setIsMuted(newMutedState);
-    if (canUnmute) setCanUnmute(false);
-  };
+  // Explicit user button click handler (guaranteed to unlock audio in Safari)
+  const toggleSound = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isMuted) {
+      video.muted = false;
+      video.volume = 1.0;
+      video.play().catch(() => {});
+      setIsMuted(false);
+      setCanUnmute(false);
+    } else {
+      video.muted = true;
+      setIsMuted(true);
+    }
+  }, [isMuted]);
 
   return (
     <section
@@ -107,16 +128,17 @@ export default function Hero() {
           <video
             ref={videoRef}
             className="w-full h-full object-cover rounded-2xl"
-            muted={isMuted}
+            muted
             loop
             playsInline
             preload="auto"
           >
-            <source src="/hero/hero.webm" type="video/webm" />
+            {/* MP4 first for 100% universal audio & video support in Safari/iOS/macOS */}
             <source src="/hero/hero.mp4" type="video/mp4" />
+            <source src="/hero/hero.webm" type="video/webm" />
           </video>
 
-          {/* Sound control */}
+          {/* Sound control button */}
           <button
             onClick={toggleSound}
             className="absolute bottom-3 right-3 w-[44px] h-[44px] rounded-full bg-[var(--color-ink)] flex items-center justify-center text-white cursor-pointer z-20 transition-transform duration-200 hover:scale-105"
@@ -179,12 +201,17 @@ export default function Hero() {
           font-size: clamp(140px, 22vw, 380px);
           -webkit-text-stroke: 1.5px var(--color-soft);
           color: transparent;
+          -webkit-transform: translateZ(0);
+          transform: translateZ(0);
         }
 
         .hero-video-wrapper {
           aspect-ratio: 768/960;
           height: clamp(340px, 58vh, 680px);
           mix-blend-mode: multiply;
+          -webkit-transform: translateZ(0);
+          transform: translateZ(0);
+          isolation: isolate;
         }
 
         @media (max-width: 767px) {
@@ -195,10 +222,12 @@ export default function Hero() {
 
         @keyframes ping-soft {
           0% {
+            -webkit-transform: scale(1);
             transform: scale(1);
             opacity: 1;
           }
           100% {
+            -webkit-transform: scale(1.6);
             transform: scale(1.6);
             opacity: 0;
           }

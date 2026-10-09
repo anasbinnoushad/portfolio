@@ -112,7 +112,10 @@ export default function About() {
         <div className="flex justify-center md:-mt-12 rv is-in" style={{ "--i": 2 } as React.CSSProperties}>
           <div
             className="relative flex flex-col items-center origin-top cursor-pointer focus:outline-none"
-            style={{ transform: `rotate(${angle}deg)` }}
+            style={{
+              transform: `rotate(${angle}deg)`,
+              WebkitTransform: `rotate(${angle}deg)`,
+            }}
             onClick={() => setFlipped(!flipped)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") setFlipped(!flipped);
@@ -255,33 +258,57 @@ export default function About() {
           animation: marquee 6s linear infinite;
         }
         @keyframes marquee {
-          0% { transform: translateY(100%); }
-          100% { transform: translateY(-100%); }
+          0% {
+            -webkit-transform: translateY(100%);
+            transform: translateY(100%);
+          }
+          100% {
+            -webkit-transform: translateY(-100%);
+            transform: translateY(-100%);
+          }
         }
         .id-card-wrap {
+          -webkit-perspective: 1000px;
           perspective: 1000px;
+          -webkit-transform: translateZ(0);
+          transform: translateZ(0);
         }
         .id-card-body {
+          -webkit-transform-style: preserve-3d;
           transform-style: preserve-3d;
-          transition: transform 0.7s var(--ease);
+          transition: -webkit-transform 0.7s var(--ease), transform 0.7s var(--ease);
         }
         .id-card-wrap:hover .id-card-body,
         .id-card-wrap.is-flipped .id-card-body {
+          -webkit-transform: rotateY(180deg);
           transform: rotateY(180deg);
         }
         .id-face {
-          backface-visibility: hidden;
           -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          -webkit-transform-style: preserve-3d;
+          transform-style: preserve-3d;
+        }
+        .id-front {
+          -webkit-transform: rotateY(0deg) translateZ(1px);
+          transform: rotateY(0deg) translateZ(1px);
         }
         .id-back {
-          transform: rotateY(180deg);
+          -webkit-transform: rotateY(180deg) translateZ(1px);
+          transform: rotateY(180deg) translateZ(1px);
         }
         .holo-sheen {
           animation: holo 3s linear infinite;
         }
         @keyframes holo {
-          0% { transform: translateX(-100%) rotate(45deg); }
-          100% { transform: translateX(200%) rotate(45deg); }
+          0% {
+            -webkit-transform: translateX(-100%) rotate(45deg);
+            transform: translateX(-100%) rotate(45deg);
+          }
+          100% {
+            -webkit-transform: translateX(200%) rotate(45deg);
+            transform: translateX(200%) rotate(45deg);
+          }
         }
       `}</style>
     </section>
