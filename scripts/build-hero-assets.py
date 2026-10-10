@@ -180,8 +180,8 @@ def main():
     portrait = os.path.join(pub_dir, "portrait-bust.webp")
     run([
         ff, "-y", "-i", cropped,
-        "-ss", "2.5", "-frames:v", "1",
-        "-vf", "crop=460:540:0:0,scale=480:600:flags=lanczos,unsharp=3:3:0.7:3:3:0.0",
+        "-ss", "2", "-frames:v", "1",
+        "-vf", "crop=min(iw\\,480):min(ih\\,600):(iw-min(iw\\,480))/2:0,scale=480:600:flags=lanczos",
         "-q:v", "90",
         portrait
     ])
