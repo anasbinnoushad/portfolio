@@ -150,7 +150,7 @@ export default function About() {
                   <div className="flex-1 flex flex-col items-center p-5 gap-3">
                     <div className="w-[128px] h-[156px] rounded-xl border border-gray-200 shadow-sm overflow-hidden relative group bg-[var(--color-paper)]">
                       <img
-                        src="/portrait-bust.webp"
+                        src="/portrait-bust.webp?v=3"
                         alt={PROFILE.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         onError={(e) => {
